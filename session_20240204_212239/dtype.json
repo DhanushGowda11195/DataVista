@@ -1,0 +1,1 @@
+{"work_year": "int64", "job_title": "object", "job_category": "object", "salary_currency": "object", "salary": "int64", "salary_in_usd": "int64", "employee_residence": "object", "experience_level": "object", "employment_type": "object", "work_setting": "object", "company_location": "object", "company_size": "object"}
