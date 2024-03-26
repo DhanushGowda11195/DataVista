@@ -1,0 +1,5 @@
+venv/
+run.bat
+.ipynb_checkpoints
+run - jupyter.bat
+app/app.ipynb
