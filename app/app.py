@@ -76,8 +76,8 @@ def figure_chart(chart):
     imgdata.seek(0)
     drawing=svg2rlg(imgdata)
     I = Image(drawing)
-    I.drawHeight = 2.5*inch*I.drawHeight / I.drawWidth
-    I.drawWidth = 8*inch
+    I.drawHeight = 5*inch*I.drawHeight / I.drawWidth
+    I.drawWidth = 5*inch
     return I
 
 
@@ -472,8 +472,8 @@ def update_chart2(x,y,function,chart_type):
 @callback(
     Output("download_pdf", "data"),
     [Input("export_btn", "n_clicks"),
-    Input("txtbox", "value"),
-    Input('chart2', 'figure')],
+    State("txtbox", "value"),
+    State('chart2', 'figure')],
     prevent_initial_call=True,
 )
 def func(n_clicks,val,fig):
@@ -495,6 +495,7 @@ def func(n_clicks,val,fig):
             doc.build(elements)
             buffer.seek(0)
             pdf_content=buffer.getvalue()
+            n_clicks=0
             return dcc.send_bytes(pdf_content,'Report'+currentTime+'.pdf')
 
 
