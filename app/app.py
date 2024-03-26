@@ -137,7 +137,7 @@ def parse_contents(contents, filename, date):
         df=pd.DataFrame(data=['There was an error processing the data'],columns=['Error'])
         return [df.to_dict('records'),[{'name': i, 'id': i} for i in df.columns]]
         
-    folder='session_'+datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    folder='input/session_'+datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     dest_path_on_git_hub=folder+'/'+re.sub('.xlsx','',re.sub('.csv','',filename))+'.json'
     commit_message=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')+': JSON file uploaded'
     json_data=df.to_json()
