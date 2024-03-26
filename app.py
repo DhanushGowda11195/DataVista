@@ -4,13 +4,6 @@
 # In[1]:
 
 
-# import sys
-# !{sys.executable} -m pip install Pyarrow
-
-
-# In[2]:
-
-
 import pandas as pd
 import numpy as np
 import base64
@@ -26,8 +19,24 @@ import re
 import requests
 import plotly.graph_objs as go
 
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle,Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph, Table, TableStyle
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import inch, mm
+from reportlab.platypus import PageBreak
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
+from svglib.svglib import svg2rlg
+import warnings
+warnings.filterwarnings("ignore")
 
-# In[3]:
+
+# In[ ]:
 
 
 vars = list()
@@ -43,7 +52,7 @@ g = Github(token)
 repo = g.get_repo(repo_for_upload)
 
 
-# In[4]:
+# In[ ]:
 
 
 def read_from_git(path):
@@ -56,7 +65,40 @@ def read_from_git(path):
     return r   
 
 
-# In[5]:
+# In[ ]:
+
+
+# Processing the charts to be pasted into PDF
+
+def figure_chart(chart):
+    imgdata = io.BytesIO()
+    chart.write_image(imgdata,format='svg')
+    imgdata.seek(0)
+    drawing=svg2rlg(imgdata)
+    I = Image(drawing)
+    I.drawHeight = 2.5*inch*I.drawHeight / I.drawWidth
+    I.drawWidth = 8*inch
+    return I
+
+
+# Defining Style to the PDF Doc
+styleSheet = getSampleStyleSheet()
+styleSub=ParagraphStyle(name='Normal',fontSize=12,fontName='Helvetica',alignment=TA_CENTER)
+style = ParagraphStyle(name='Normal',fontSize=8,fontName='Helvetica')
+style2 = ParagraphStyle(name='Normal',fontSize=6,fontName='Helvetica')
+styleth = ParagraphStyle(name='Normal',fontSize=8,fontName='Helvetica',alignment=TA_CENTER)
+stylech = ParagraphStyle(name='Normal',fontSize=12,fontName='Helvetica',alignment=TA_CENTER,leading=0)
+styleH=ParagraphStyle(name='Heading1',fontSize=12,fontName='Helvetica',leading=24)
+styleT=ParagraphStyle(name='Heading1',fontSize=24,fontName='Helvetica',leading=36,alignment=TA_CENTER)
+styleS=ParagraphStyle(name='Heading3',fontSize=12,fontName='Helvetica',leading=16,alignment=TA_LEFT)
+styleD=ParagraphStyle(name='Normal',fontSize=8,fontName='Helvetica',leftIndent=6,spaceAfter=10,spaceBefore=6)
+def addPageNumber(canvas, doc):
+    page_num = canvas.getPageNumber()
+    text = "Page %s" % page_num
+    canvas.drawRightString(200*mm, 10*mm, text)
+
+
+# In[ ]:
 
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -64,7 +106,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
 
-# In[6]:
+# In[ ]:
 
 
 h1_style={'color':'#344e41','backgroundColor':'#dad7cd','text-align': 'center','font-weight':'bold'}
@@ -75,7 +117,7 @@ Tab_Selected_Style={'borderTop': '4px solid #0000FF','borderBottom': '1px solid 
     'borderRight': '1px solid black','backgroundColor': '#1F1F1F','color': 'white','padding': '6px'}
 
 
-# In[7]:
+# In[ ]:
 
 
 def parse_contents(contents, filename, date):
@@ -107,7 +149,7 @@ def parse_contents(contents, filename, date):
     return [df.to_dict('records'),[{'name': i, 'id': i} for i in df.columns]]
 
 
-# In[8]:
+# In[ ]:
 
 
 app.layout = html.Div([
@@ -172,11 +214,24 @@ app.layout = html.Div([
                     dcc.Tab(label='Report',
                             value='tab-3',
                             className='custom-tab',
-                            selected_className='custom-tab--selected')])
-])
+                            selected_className='custom-tab--selected',
+                           children=[
+                               html.Div([
+                                   html.Div([html.H6('X-Axis',className='row'),
+                                             dcc.Dropdown(id='x_axis2',searchable=True,className='row')],className='three columns'),
+                                   html.Div([html.H6('Y-Axis',className='row'),
+                                             dcc.Dropdown(id='y_axis2',searchable=True,className='row')],className='three columns'),
+                                   html.Div([html.H6('Aggregator',className='row'),
+                                             dcc.Dropdown(id='aggregator2',searchable=True,className='row')],className='three columns'),
+                                   html.Div([html.H6('Chart Type',className='row'),
+                                             dcc.Dropdown(id='chart_type2',options=['Bar','Line','Pie','Scatter'],searchable=True,className='row')],className='three columns')],className='row'),
+                               html.Div(dcc.Graph(id='chart2',className='row'),className='row'),
+                               html.Div(dcc.Textarea(id='txtbox',style={'width': '100%', 'height': 200}),className='row'),
+                               html.Div(html.Button('Export to PDF', id='export_btn', n_clicks=0),className='row'),
+                               dcc.Download(id="download_pdf")])])])
 
 
-# In[9]:
+# In[ ]:
 
 
 @callback([Output('dashtable', 'data'),
@@ -201,20 +256,24 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         return [df.to_dict('records'),[{'name': i, 'id': i} for i in df.columns]]
 
 
-# In[10]:
+# In[ ]:
 
 
 @callback([Output('row_field', 'options'),
           Output('column_field', 'options'),
           Output('data_field', 'options'),
           Output('x_axis', 'options'),
-          Output('y_axis', 'options')],
+          Output('y_axis', 'options'),
+          Output('x_axis2', 'options'),
+          Output('y_axis2', 'options')],
           [Input('dashtable', 'data'),
           Input('row_field', 'value'),
           Input('column_field', 'value'),
           Input('x_axis', 'value'),
-          Input('y_axis', 'value')])
-def update_dropdown_options1(list_of_contents,val1,val2,val3,val4):
+          Input('y_axis', 'value'),
+          Input('x_axis2', 'value'),
+          Input('y_axis2', 'value')])
+def update_dropdown_options1(list_of_contents,val1,val2,val3,val4,val5,val6):
     if list_of_contents is not None:
         if val2 is not None:
             opt1=[x for x in df.columns if x not in val2]
@@ -233,12 +292,20 @@ def update_dropdown_options1(list_of_contents,val1,val2,val3,val4):
             opt5=[x for x in df.columns if x not in val3]
         else:
             opt5=[x for x in df.columns]
-        return [opt1,opt2,opt3,opt4,opt5]
+        if val6 is not None:
+            opt6=[x for x in df.columns if x not in val6]
+        else:
+            opt6=[x for x in df.columns]
+        if val5 is not None:
+            opt7=[x for x in df.columns if x not in val5]
+        else:
+            opt7=[x for x in df.columns]
+        return [opt1,opt2,opt3,opt4,opt5,opt6,opt7]
     else:
         raise PreventUpdate
 
 
-# In[13]:
+# In[ ]:
 
 
 @callback(Output('function_field', 'options'),
@@ -255,7 +322,7 @@ def update_dropdown_options2(value):
         return []
 
 
-# In[14]:
+# In[ ]:
 
 
 @callback(Output('aggregator', 'options'),
@@ -272,7 +339,24 @@ def update_dropdown_options3(value):
         return []
 
 
-# In[15]:
+# In[ ]:
+
+
+@callback(Output('aggregator2', 'options'),
+          Input('y_axis2', 'value'))
+def update_dropdown_options4(value):
+    if value is not None:
+        if df[value].dtype in ['int64','float64']:
+            funcs=['Count','Distinct Count','Maximum','Minimum','Mean','Sum']
+        else:
+            funcs=['Count','Distinct Count']
+        opt=[x for x in funcs]
+        return opt
+    else:
+        return []
+
+
+# In[ ]:
 
 
 @callback(Output('summary_table', 'children'),
@@ -301,7 +385,7 @@ def update_summary_table(row,column,data,function):
             export_headers='display')])
 
 
-# In[16]:
+# In[ ]:
 
 
 @callback(Output('chart', 'figure'),
@@ -336,31 +420,84 @@ def update_chart(x,y,function,chart_type):
         return fig
     else:
         fig=go.Figure()
-        # fig.update_layout(plot_bgcolor='white',paper_bgcolor='white',
-        #                   font=dict(color='white'),annotations=[{"text": "No Data Available","xref": "paper","yref": "paper",
-        #                     "showarrow": False,"font": {"size": 28}}])
         fig.update_xaxes(showgrid=False,zeroline=False,showticklabels=False,visible=False)
         fig.update_yaxes(showgrid=False,zeroline=False,showticklabels=False,visible=False)
         return fig
     
 
 
-# In[17]:
+# In[ ]:
 
 
-# df=pd.read_excel('Global_Superstore.xlsx')
-# df
+@callback(Output('chart2', 'figure'),
+          [Input('x_axis2', 'value'),
+          Input('y_axis2', 'value'),
+          Input('aggregator2', 'value'),
+          Input('chart_type2', 'value')])
+def update_chart2(x,y,function,chart_type):
+    if x is not None and y is not None and chart_type is not None and function is not None:
+        layout = dict(plot_bgcolor='white',
+                  margin=dict(t=20, l=20, r=20, b=20),
+                  xaxis=dict(title=x,showgrid=False),
+                  yaxis=dict(title=function+' of '+y,showgrid=False))
+        if function=='Distinct Count':
+            function='nunique'
+        elif function=='Maximum':
+            function='max'
+        elif function=='Minimum':
+            function='min'
+        else:
+            function=function.lower()
+        group=df.pivot_table(values=y,index=x,aggfunc=function).reset_index()
+        
+        if chart_type=='Pie':
+            fig=go.Figure(data=go.Pie(labels=group[x].values,values=group[y].values,text=group[x].values),layout=layout)
+        elif chart_type=='Bar':
+            fig=go.Figure(data=go.Bar(x=group[x].values,y=group[y].values,text=group[y].values),layout=layout)
+        elif chart_type=='Line':
+            fig=go.Figure(data=go.Scatter(x=group[x].values,y=group[y].values,text=group[y].values),layout=layout)
+        elif chart_type=='Scatter':
+            fig=go.Figure(data=go.Scatter(x=group[x].values,y=group[y].values,text=group[y].values,mode='markers'),layout=layout)
+        return fig
+    else:
+        fig=go.Figure()
+        fig.update_xaxes(showgrid=False,zeroline=False,showticklabels=False,visible=False)
+        fig.update_yaxes(showgrid=False,zeroline=False,showticklabels=False,visible=False)
+        return fig
 
 
-# In[18]:
+# In[ ]:
+
+
+@callback(
+    Output("download_pdf", "data"),
+    [Input("export_btn", "n_clicks"),
+    Input("txtbox", "value"),
+    Input('chart2', 'figure')],
+    prevent_initial_call=True,
+)
+def func(n_clicks,val,fig):
+    # Building the Final PDF
+    if n_clicks>0:
+        if fig is not None:
+            currentTime=datetime.datetime.now().strftime("%m-%d-%Y %H:%M:%S")
+            buffer=io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4,
+                                    topMargin=0.5*inch,bottomMargin=0.5*inch,leftMargin=0.5*inch,rightMargin=0.5*inch)
+            
+            elements = []
+            elements.append(Paragraph('<b>Report</b>',style=styleT))
+            data3=[[figure_chart(go.Figure(fig))],[Paragraph(val)]]            
+            ch2=Table(data3)
+            ch2.setStyle(TableStyle([('TEXTCOLOR',(0,0),(1,-1),colors.black),('FONTSIZE',(0,0),(1,-1),8),('ALIGN', (1,0), (-1,-1), 'LEFT'),
+                                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+            elements.append(ch2)
+            doc.build(elements)
+            buffer.seek(0)
+            pdf_content=buffer.getvalue()
+            return dcc.send_bytes(pdf_content,'Report'+currentTime+'.pdf')
 
 
 if __name__ == '__main__':
     app.run(debug=True, jupyter_mode="tab")
-
-
-# In[19]:
-
-
-# path.split('/')[0].split('_')[1]+sha
 
