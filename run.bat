@@ -1,1 +1,0 @@
-cmd /k "cd %~dp0 & venv\Scripts\activate.bat & python app.py"
