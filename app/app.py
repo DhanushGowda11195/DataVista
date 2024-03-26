@@ -247,7 +247,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         data=read_from_git(path).json()
         global df
         df=pd.DataFrame(data)
-        col_dtypes=read_from_git(path.split('/')[0]+'/'+'dtype.json').json()
+        col_dtypes=read_from_git('input/'+path.split('/')[1]+'/'+'dtype.json').json()
         for i in col_dtypes.keys():
             df[i]=df[i].astype(col_dtypes[i])            
         return children
